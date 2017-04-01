@@ -8,7 +8,7 @@ import xlrd, xlsxwriter
 
 
 def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
-	'''엑셀파일 형태의 데이터 전달 
+	'''엑셀파일 형태의 데이터 전달 하여 RecordParser 객체 생성 
 	'''
 	wb = xlrd.open_workbook(filename=file_name, file_contents=file_contents)
 	ws = wb.sheet_by_index(sheet_index)
