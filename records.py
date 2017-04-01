@@ -7,6 +7,16 @@ from io import BytesIO
 import xlrd, xlsxwriter
 
 
+def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
+	'''엑셀파일 형태의 데이터 전달 
+	'''
+	wb = xlrd.open_workbook(filename=file_name, file_contents=file_contents)
+	ws = wb.sheet_by_index(sheet_index)
+	fields = ws.row_values(start_row)
+	records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
+	return RecordParser(records, drop_if)
+
+
 class RecordParser:
 	def __init__(self, records=None, drop_if=lambda row: False):
 		'''dict_list 형태의 데이터셋 전달 drop_if- 제외할 조건전달

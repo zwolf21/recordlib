@@ -1,4 +1,4 @@
-from records import RecordParser
+from records import RecordParser, read_excel
 
 
 path1 = r'C:\Users\HS\Desktop\마약잔량.xls'
@@ -7,9 +7,9 @@ path3 = "C:\\Users\\HS\\Desktop\\약품정보.xls"
 
 
 
-recs = RecordParser().read_excel(path1)
-recs2 = RecordParser().read_excel(path2)
-di_recs = RecordParser().read_excel(path3)
+recs = read_excel(path1)
+recs2 = read_excel(path2)
+di_recs = read_excel(path3)
 di_recs.format([('함량1', 0.0), ('일반단가' ,0)])
 
 recs+=recs2
@@ -34,7 +34,7 @@ recs.add_column([('불출월', lambda row:row['불출일자'][:-3])])
 
 recs.order_by(['-불출일자', '집계량'])
 
-recs.distinct(['불출일자','환자번호','약품명','처방번호[묶음]'], True)
+# recs.distinct(['불출일자','환자번호','약품명','처방번호[묶음]'], True)
 
 ret = recs.group_by(
 	columns = ['불출일자', '병동', '약품명'], 
@@ -49,4 +49,4 @@ for rec in recs.records:
 
 print(len(recs))
 
-recs.to_excel('test.xlsx')
+# recs.to_excel('test.xlsx')
