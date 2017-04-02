@@ -117,16 +117,17 @@ class RecordParser:
 			fk = 현재 테이블에서 참조할 컬럼, pk = 다른테이블의 컬럼, ret_column =다른테이블의 가져올 정보가 있는 컬럼 및 디폴트 값 지정
 			vlookup(RecordParser2, 'FK', 'PK', [('RetColumn1', 0),('RetColumn2', "")])
 		'''
+		if not foreign:
+			return self
+
+		foreign = {row[pk] :row for row in foreign}
+
 		for self_row in self.records:
-			key = self_row[fk]
-			for ret_column, default in ret_columns:
-				self_row[ret_column] = default
-			for for_row in foreign:
-				if key == for_row[pk]:
-					for ret_column, default in ret_columns:
-						self_row[ret_column] = for_row[ret_column]
-					break
+			foreign_row = foreign.get(self_row[fk], {})
+			for col, default in ret_columns:
+				self_row[col] = foreign_row.get(col, default)
 		return self
+
 
 	def value_map(self, mappings):
 		'''특정 값을 정해진 값으로 변경 
@@ -166,14 +167,14 @@ class RecordParser:
 
 
 	def update(self, bootstrap, where=lambda row:row):
-		'''bootstrap = 각 로우의 컬럼을 단계적으로 편집할 (컬럼, 함수)셋, 함수는 해당 로우, 컬럼에 해당하는 단일 값을 인자로 받음 
-			bootstrap = [('Columns1', val_func1), ('Columns2', val_func2)...]
+		'''bootstrap = 각 로우의 컬럼을 단계적으로 편집할 (컬럼, 함수)셋, 함수는 로우 값을 인자로 받음 
+			bootstrap = [('Columns1', row_func1), ('Columns2', row_func2)...]
 		'''
 		for row in self.records:
 			if not where(row):
 				continue
 			for column, func in bootstrap:
-				row[column] = func(row[column])
+				row[column] = func(row)
 		return self
 
 
@@ -225,5 +226,12 @@ class RecordParser:
 		if inplace:
 			self.records = ret
 			return self
-		return ret		
+		return ret
+
+	def to2darry(self, header=True):
+		header = [list(self.records[0].keys())]
+		body = [list(row.values()) for row in self.records]
+		return header + body if header else body
+
+
 
