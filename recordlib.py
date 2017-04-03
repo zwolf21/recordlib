@@ -80,17 +80,19 @@ class RecordParser:
 		fmt_funcs = list(map(lambda fmt:(fmt[0] ,type(fmt[1])) , fmts))
 		ret = []
 		for row in self.records:
+			fail = False
 			for i, (colname, func) in enumerate(fmt_funcs):
 				try:
 					val = func(row[colname])
 				except:
+					fail = True
 					val = fmts[i][1]
-				else:
-					pass
-				finally:
 					row[colname] = val
-					if not drop_if_fail:
-						ret.append(row)
+				else:
+					row[colname] = val
+			if drop_if_fail and fail:
+				continue
+			ret.append(row)
 		self.records = ret
 		return self
 
@@ -166,8 +168,8 @@ class RecordParser:
 		return self
 
 
-	def update(self, bootstrap, where=lambda row:row):
-		'''bootstrap = 각 로우의 컬럼을 단계적으로 편집할 (컬럼, 함수)셋, 함수는 로우 값을 인자로 받음 
+	def update(self, bootstrap, where=lambda val:val):
+		'''bootstrap = 각 로우의 컬럼을 단계적으로 편집할 (컬럼, 함수)셋, 함수는 해당 로우 값을 인자로 받음 
 			bootstrap = [('Columns1', row_func1), ('Columns2', row_func2)...]
 		'''
 		for row in self.records:
@@ -226,12 +228,9 @@ class RecordParser:
 		if inplace:
 			self.records = ret
 			return self
-		return ret
+		return ret		
 
 	def to2darry(self, header=True):
 		header = [list(self.records[0].keys())]
 		body = [list(row.values()) for row in self.records]
 		return header + body if header else body
-
-
-
