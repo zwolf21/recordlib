@@ -18,12 +18,18 @@ def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, she
 
 
 class RecordParser:
+
 	def __init__(self, records=None, drop_if=lambda row: False):
 		'''dict_list 형태의 데이터셋 전달 drop_if- 제외할 조건전달
 			RecordParse(record=[{},{},{}...{}], drop_if=lambda row:bool(row[col])) 
 		'''
 		if records:
-			self.records = [row for row in records if not drop_if(row)]
+			fields_set = set()
+			for row in records:
+				fields_set |= set(row.keys())
+			self.records = [OrderedDict((key, row.get(key, '')) for key in fields_set) for row in records if not drop_if(row)]
+		else:
+			self.records = []
 
 	def __getitem__(self, index):
 		if self.records:
@@ -145,9 +151,10 @@ class RecordParser:
 	def select(self, columns, where=lambda row:True):
 		'''select([('A', 'B', 'C', 'D')], where = lambda row: row['A'] > row['B'])
 		'''
-		if columns == "*":
+
+		if columns == "*" and self.records:
 			columns = self.records[0].keys()
-		self.records = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
+			self.records = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
 		return self
 
 
@@ -223,7 +230,7 @@ class RecordParser:
 				row[alias] = aggfunc([row[aggcol] for row in grouped])
 
 			select = selects if selects else columns+[e[2] for e in aggset]
-			ret.append(OrderedDict((key, val) for key, val in row.items() if key in select))
+			ret.append(OrderedDict((key, row[key]) for key in select))
 
 		if inplace:
 			self.records = ret
@@ -234,3 +241,14 @@ class RecordParser:
 		header = [list(self.records[0].keys())]
 		body = [list(row.values()) for row in self.records]
 		return header + body if header else body
+
+	def unique(self, column):
+		return {row[column] for row in self.records}
+
+	def max(self, column):
+		if self.records:
+			return max(row[column] for row in self.records)
+
+	def min(self, column):
+		if self.records:
+			return min(row[column] for row in self.records)	
