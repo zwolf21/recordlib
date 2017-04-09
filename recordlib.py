@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 from itertools import groupby
 from copy import deepcopy
 from operator import itemgetter
@@ -251,4 +251,7 @@ class RecordParser:
 
 	def min(self, column):
 		if self.records:
-			return min(row[column] for row in self.records)	
+			return min(row[column] for row in self.records)
+
+	def value_count(self, column):
+		return Counter(row[column] for row in self.records)

@@ -12,6 +12,7 @@ recs = read_excel(path1)
 di_recs = read_excel(path3)
 # di_recs.format([('함량1', 0.0), ('일반단가' ,0)])
 
+
 # recs+=recs2
 # recs.read_excel(path2)
 # recs.format([('약국진행상태', 0.0), ('처방량(규격단위)', 0.0), ('집계량', 0.0)])
@@ -42,9 +43,11 @@ recs.update(bootstrap = [
 # 	selects=['불출일자', '병동', '약품명', '집계량종합', '개수']
 # )
 
-ret = recs.to2darry()
+# ret = recs.to2darry()
+code_counter = recs.value_count('약품코드')
+recs.add_column([('사용회수', lambda row: code_counter[row['약품코드']])])
 
-print(ret[:2])
+print(recs[:2])
 # for rec in recs.records:
 # 	print(rec)
 
