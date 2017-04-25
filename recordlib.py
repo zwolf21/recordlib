@@ -2,19 +2,11 @@ from collections import OrderedDict, Counter
 from itertools import groupby
 from copy import deepcopy
 from operator import itemgetter
-from io import BytesIO
+from io import BytesIO, StringIO
+import csv
 
 import xlrd, xlsxwriter
 
-
-def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
-	'''엑셀파일 형태의 데이터 전달 하여 RecordParser 객체 생성 
-	'''
-	wb = xlrd.open_workbook(filename=file_name, file_contents=file_contents)
-	ws = wb.sheet_by_index(sheet_index)
-	fields = ws.row_values(start_row)
-	records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
-	return RecordParser(records, drop_if)
 
 
 class RecordParser:
@@ -58,6 +50,22 @@ class RecordParser:
 		records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
 		self.records = [row for row in records if not drop_if(row)]
 		return self
+
+	def to_csv(self, filename=None):
+		if not self.records:
+			return
+
+		output = StringIO()
+		writer = csv.DictWriter(output, fieldnames = self.records[0].keys(), lineterminator='\n')
+		writer.writeheader()
+		for row in self.records:
+			writer.writerow(row)
+
+		if filename:
+			with open(filename, 'w') as fp:
+				fp.write(output.getvalue())
+		else:
+			return output.getvalue()
 
 	def to_excel(self, filename=None):
 		'''filename 을 전달하지 않으면 file contents 를 반환
@@ -255,3 +263,29 @@ class RecordParser:
 
 	def value_count(self, column):
 		return Counter(row[column] for row in self.records)
+
+
+def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
+	'''엑셀파일 형태의 데이터 전달 하여 RecordParser 객체 생성 
+	'''
+	wb = xlrd.open_workbook(filename=file_name, file_contents=file_contents)
+	ws = wb.sheet_by_index(sheet_index)
+	fields = ws.row_values(start_row)
+	records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
+	return RecordParser(records, drop_if)
+
+def read_csv(filename=None, encoding='utf-8',  fp=None, drop_if=lambda row: False):
+	csvfp = None
+	if filename:
+		csvfp = open(filename, encoding=encoding)
+	elif fp:
+		csvfp = fp
+	else:
+		return
+
+	csv_reader = csv.reader(csvfp)
+	fields = next(csv_reader)
+
+	records = [OrderedDict(zip(fields, map(str, row))) for row in csv_reader]
+	csvfp.close()
+	return RecordParser(records, drop_if)
