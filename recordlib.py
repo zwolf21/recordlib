@@ -157,12 +157,12 @@ class RecordParser:
 
 
 	def select(self, columns, where=lambda row:True):
-		'''select([('A', 'B', 'C', 'D')], where = lambda row: row['A'] > row['B'])
+		'''select(['A', 'B', 'C', 'D'], where = lambda row: row['A'] > row['B'])
 		'''
 
 		if columns == "*" and self.records:
 			columns = self.records[0].keys()
-			self.records = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
+		self.records = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
 		return self
 
 
