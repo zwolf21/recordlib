@@ -11,14 +11,17 @@ import xlrd, xlsxwriter
 
 class RecordParser:
 
-	def __init__(self, records=None, drop_if=lambda row: False):
+	def __init__(self, records=None, columns=None, drop_if=lambda row: False):
 		'''dict_list 형태의 데이터셋 전달 drop_if- 제외할 조건전달
 			RecordParse(record=[{},{},{}...{}], drop_if=lambda row:bool(row[col])) 
 		'''
 		if records:
-			fields_set = set()
-			for row in records:
-				fields_set |= set(row.keys())
+			if not columns:
+				fields_set = set()
+				for row in records:
+					fields_set |= set(row.keys())
+			else:
+				fields_set = columns
 			self.records = [OrderedDict((key, row.get(key, '')) for key in fields_set) for row in records if not drop_if(row)]
 		else:
 			self.records = []
@@ -40,16 +43,6 @@ class RecordParser:
 	def __iter__(self):
 		return iter(self.records)
 
-
-	def read_excel(self, file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
-		'''엑셀파일 형태의 데이터 전달 
-		'''
-		wb = xlrd.open_workbook(filename=file_name, file_contents=file_contents)
-		ws = wb.sheet_by_index(sheet_index)
-		fields = ws.row_values(start_row)
-		records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
-		self.records = [row for row in records if not drop_if(row)]
-		return self
 
 	def to_csv(self, filename=None):
 		if not self.records:
@@ -156,14 +149,25 @@ class RecordParser:
 		return self
 
 
-	def select(self, columns, where=lambda row:True):
+	def select(self, columns, where=lambda row:True, inplace=True):
 		'''select(['A', 'B', 'C', 'D'], where = lambda row: row['A'] > row['B'])
 		'''
 
 		if columns == "*" and self.records:
 			columns = self.records[0].keys()
-		self.records = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
-		return self
+
+		ret = [OrderedDict((key, row[key]) for key in columns) for row in self.records if where(row)]
+		if inplace:
+			self.records = ret
+			return self
+		return RecordParser(ret, columns= columns)
+
+	def get_first(self, where, column):
+		''' get only one value where = lambda row: row['A'] == 'ABC', column = 'B'
+		'''
+		for row in self.records:
+			if where(row):
+				return row[column]
 
 
 	def add_column(self, columns=[]):
@@ -272,7 +276,7 @@ def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, she
 	ws = wb.sheet_by_index(sheet_index)
 	fields = ws.row_values(start_row)
 	records = [OrderedDict(zip(fields, map(str, ws.row_values(r)))) for r in range(start_row+1, ws.nrows)]
-	return RecordParser(records, drop_if)
+	return RecordParser(records, drop_if=drop_if)
 
 def read_csv(filename=None, encoding='utf-8',  fp=None, drop_if=lambda row: False):
 	csvfp = None
@@ -288,4 +292,4 @@ def read_csv(filename=None, encoding='utf-8',  fp=None, drop_if=lambda row: Fals
 
 	records = [OrderedDict(zip(fields, map(str, row))) for row in csv_reader]
 	csvfp.close()
-	return RecordParser(records, drop_if)
+	return RecordParser(records, drop_if=drop_if)
