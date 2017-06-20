@@ -1,4 +1,5 @@
-from collections import OrderedDict, Counter
+from collections import OrderedDict, Counter, defaultdict, namedtuple
+from heapq import nlargest, nsmallest
 from itertools import groupby
 from copy import deepcopy
 from operator import itemgetter
@@ -78,6 +79,20 @@ class RecordParser:
 				fp.write(output.getvalue())
 		else:
 			return output.getvalue()
+
+	def round_float_fields(self, columns):
+		'''
+		round_float_fields([('colname1', 2), ('colname2', 3)])
+		'''
+		for row in self.records:
+			for col, rnd in columns:
+				try:
+					val = float(row[col])
+				except:
+					continue
+				else:
+					row[col] = round(val, rnd)
+		return self
 
 
 	def format(self, fmts, drop_if_fail=False):
@@ -200,7 +215,7 @@ class RecordParser:
 
 
 	def order_by(self, rules):
-		'''order_by('-불출일자', '집계량'), Django Style, 불출일자 내림차순, 집계량 오름차순 
+		'''order_by(['-불출일자', '집계량']), Django Style, 불출일자 내림차순, 집계량 오름차순 
 		'''
 		for rule in reversed(rules):
 			rvs = rule.startswith('-')
@@ -249,10 +264,10 @@ class RecordParser:
 			return self
 		return ret		
 
-	def to2darry(self, header=True):
+	def to2darry(self, headers=True):
 		header = [list(self.records[0].keys())]
 		body = [list(row.values()) for row in self.records]
-		return header + body if header else body
+		return header + body if headers else body
 
 	def unique(self, column):
 		return {row[column] for row in self.records}
@@ -267,6 +282,97 @@ class RecordParser:
 
 	def value_count(self, column):
 		return Counter(row[column] for row in self.records)
+
+	def nlargest_rows(self, num, columns):
+		''' 지정된 열을 기준으로 가장 큰 값을 가지는 로우 반환
+		recs.nlargest_row(
+				num = 3, # 추출할 항목수,
+				columns = ['A', 'B'] # 추출 할 열이름
+			)
+		'''
+		return nlargest(num, self.records, key=itemgetter(*columns))
+
+	def nsmallest_rows(self, num, columns):
+		''' 지정된 열을 기준으로 가장 작은 값을 가지는 로우 반환
+		recs.nlargest_row(
+				num = 3, # 추출할 항목수,
+				columns = ['A', 'B'] # 추출 할 열이름
+			)
+		'''
+		return nsmallest(num, self.records, key=itemgetter(*columns))
+
+	def get_changes(self, other, pk):
+		'''동일한 scheme 를 갖는 RecordParser 객체끼리의 비교
+			recs1.get_changes(recs2, pk='primaryKey') 
+			pk: 데이터셋 안에서 유일하고 변하지 않는 속성(기본키) 이어야 한다
+		'''
+		if self.records[0].keys() != other.records[0].keys():
+			raise('Other record has different scheme')
+
+		origin, target = {row[pk]: row for row in self}, {row[pk]: row for row in other}
+
+		missing_keys = origin.keys() - target.keys()
+		extra_keys = target.keys() - origin.keys()
+		common_keys = origin.keys() & target.keys()
+		
+		added, deleted, updated = [], [], []
+
+		Added = namedtuple('Added', 'index rows')
+		Deleted = namedtuple('Deleted', 'index rows')
+		Updated = namedtuple('Updated', 'index before after where')
+
+		for key in extra_keys:
+			added.append(Added(key, target[key]))
+
+		for key in missing_keys:
+			deleted.append(Deleted(key, origin[key]))
+
+		for key in common_keys:
+			diff = origin[key].items() ^ target[key].items()
+			if diff:
+				updated.append(Updated(key, origin[key], target[key], list(dict(diff))))
+
+		Changes = namedtuple('Changes', 'added deleted updated')
+
+		return Changes(added, deleted, updated)
+
+	def _put_changes(self, change_context):
+		''' changes = recs.get_changes(recs2, 'pk')
+			recs._put_changes(changes)
+		'''
+		if change_context.added:
+			print('---------added---------')
+			for added in change_context.added:
+				print('	Index:', added.index)
+
+		if change_context.deleted:
+			print('--------deleted--------')
+			for deleted in change_context.deleted:
+				print('	Index:', deleted.index)
+
+		if change_context.updated:
+			print('--------updated--------')
+			for updated in change_context.updated:
+				print('	Index:', updated.index)
+				for uk in updated.where:
+					print('		where:', uk)
+					print('			before:', updated.before[uk])
+					print('			after:', updated.after[uk])
+
+	def set_pk(self, columns, pk_name = 'pk'):
+		f = lambda row: '-'.join(row[col] for col in columns)
+		tmp_recs= RecordParser(self.records)
+		tmp_recs.add_column([(pk_name, f)])
+		if len(tmp_recs.unique(pk_name)) == len(tmp_recs):
+			self.records = tmp_recs.records
+			return self
+		raise ValueError('The combination of columns {} is duplicated'.format(str(columns)))
+
+
+
+
+
+
 
 
 def read_excel(file_name=None, file_contents=None, drop_if=lambda row:False, sheet_index=0, start_row=0):
